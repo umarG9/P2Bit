@@ -1,0 +1,60 @@
+  const a=document.createElement("div");a.className="acts";
+  const lk=document.createElement("button");lk.className="lk"+(liked?" on":"");lk.textContent="\u2665 "+likes.length;
+  lk.onclick=()=>doc.ref.update({likes:liked?fs.arrayRemove(me.uid):fs.arrayUnion(me.uid)}).catch(err);
+  a.append(lk);
+  if(p.uid===me.uid){const d=document.createElement("button");d.textContent="Delete";d.onclick=()=>confirm("Delete this post?")&&doc.ref.delete().catch(err);a.append(d)}
+  else{const m=document.createElement("button");m.className="more";m.textContent="\u22ef";m.onclick=()=>menu(p.uid,p.name,{id:doc.id,text:p.text});a.append(m)}
+  el.append(a);box.append(el);
+ });
+}
+$("post").onclick=async()=>{
+ const t=$("pt").value.trim();if(!t)return;
+ try{await db.collection("posts").add({uid:me.uid,name:me.name,text:t.slice(0,500),likes:[],t:fs.serverTimestamp()});$("pt").value=""}catch(e){err(e)}
+};
+
+function startReqs(){
+ const c=db.collection("requests");
+ unsubs.push(c.where("from","==",me.uid).onSnapshot(s=>{reqs.a=s.docs;relr()},err));
+ unsubs.push(c.where("to","==",me.uid).onSnapshot(s=>{reqs.b=s.docs;relr()},err));
+}
+function relr(){
+ rel={};
+ reqs.a.forEach(d=>{const r=d.data();rel[r.to]={s:r.status==="accepted"?"friend":"sent",name:r.toName,d}});
+ reqs.b.forEach(d=>{const r=d.data();rel[r.from]={s:r.status==="accepted"?"friend":"got",name:r.fromName,d}});
+ drawPeople();drawFriends();
+}
+async function loadPeople(){
+ const s=await db.collection("users").limit(200).get();
+ P={};s.docs.forEach(d=>P[d.id]={uid:d.id,...d.data()});P[me.uid]=me;
+ people=Object.values(P).filter(u=>u.uid!==me.uid);
+ drawPeople();drawFeed();drawFriends();
+}
+function drawPeople(){
+ const q=$("sq").value.trim().toLowerCase(),box=$("plist");box.innerHTML="";
+ const l=people.filter(u=>!B[u.uid]&&(!q||(u.nameLower||"").includes(q)||(u.cityLower||"").includes(q)));
+ if(!l.length){box.textContent="No people found yet. Invite your friends.";return}
+ l.forEach(u=>{
+  const el=document.createElement("div");el.className="card row";
+  el.innerHTML=av(u)+`<div style="flex:1"><b>${esc(u.name)}</b><div class="mut">${esc(u.city||"")}</div></div>`;
+  const r=rel[u.uid],b=document.createElement("button");
+  if(!r){b.textContent="Add friend";b.onclick=()=>db.collection("requests").doc(me.uid+"_"+u.uid).set({from:me.uid,to:u.uid,fromName:me.name,toName:u.name,status:"pending"}).catch(err)}
+  else if(r.s==="sent"){b.textContent="Requested";b.disabled=true}
+  else if(r.s==="got"){b.textContent="Accept";b.onclick=()=>r.d.ref.update({status:"accepted"}).catch(err)}
+  else{b.textContent="Chat";b.onclick=()=>openChat(u.uid,u.name)}
+  const m=document.createElement("button");m.textContent="\u22ef";m.onclick=()=>menu(u.uid,u.name);
+  el.append(b,m);box.append(el);
+ });
+}
+$("sq").oninput=drawPeople;
+function drawFriends(){
+ const rq=$("rq"),fl=$("fl");rq.innerHTML="";fl.innerHTML="";
+ const ent=Object.entries(rel),got=ent.filter(([,r])=>r.s==="got"),fr=ent.filter(([,r])=>r.s==="friend");
+ if(!got.length)rq.textContent="No new requests.";
+ got.forEach(([id,r])=>mk(rq,id,r.name,[["Accept",()=>r.d.ref.update({status:"accepted"}).catch(err)],["Decline",()=>r.d.ref.delete().catch(err)]]));
+ if(!fr.length)fl.textContent="No friends yet. Go to People and add some.";
+ fr.forEach(([id,r])=>mk(fl,id,r.name,[["Chat",()=>openChat(id,r.name)],["⋯",()=>menu(id,r.name)]]));
+}
+
+function openChat(uid,name){
+ peer=uid;tab("chat");$("cwith").textContent="Chat with "+name;$("cbox").hidden=false;
+ if(unChat)unChat();
